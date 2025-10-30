@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "Ticker Copier",
+  "version": "1.0",
+  "description": "Copy ticker symbols with a click",
+  "permissions": [
+    "clipboardWrite"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://chatroom.warriortrading.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_end"
+    }
+  ]
+}
