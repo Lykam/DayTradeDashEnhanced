@@ -77,6 +77,7 @@ function highlightRows() {
     const timeText = cells[0]?.textContent.trim();
     const symbolCell = cells[1];
     const priceText = cells[2]?.textContent.trim();
+    const volumeText = cells[3]?.textContent.trim();
     const floatText = cells[4]?.textContent.trim();
     const relVolDailyText = cells[5]?.textContent.trim();
     const relVol5minText = cells[6]?.textContent.trim();
@@ -91,17 +92,22 @@ function highlightRows() {
     }
 
     const price = parseNumber(priceText);
+    const volume = parseNumber(volumeText);
     const floatValue = parseNumber(floatText);
     const relVolDaily = parseNumber(relVolDailyText);
     const relVol5min = parseNumber(relVol5minText);
 
     // Check if all conditions are met:
     // Price between $2 and $20
+    // Volume > 100K (100,000)
     // Float < 20M (20,000,000)
+    // Relative Volume Daily > 5
     // Relative Volume 5 min > 5
 
     if (price >= 2 && price <= 20 &&
+        volume > 100000 &&
         floatValue < 20000000 &&
+        relVolDaily > 5 &&
         relVol5min > 5) {
 
       // Highlight the first column (Time column) with soft red background
