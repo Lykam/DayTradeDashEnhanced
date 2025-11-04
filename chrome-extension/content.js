@@ -33,8 +33,44 @@ function parseNumber(text) {
   return parseFloat(text) || 0;
 }
 
+// Function to play a beep sound
+function playBeep(frequency, duration = 200) {
+  try {
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+
+    oscillator.frequency.value = frequency;
+    oscillator.type = 'sine';
+
+    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration / 1000);
+
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + duration / 1000);
+  } catch (error) {
+    console.error('Error playing beep:', error);
+  }
+}
+
+// Function to play high pitch beep for strict criteria
+function playHighPitchBeep() {
+  playBeep(800, 200); // 800 Hz, 200ms duration
+}
+
+// Function to play low pitch beep for lax criteria
+function playLowPitchBeep() {
+  playBeep(400, 200); // 400 Hz, 200ms duration
+}
+
 // Track which rows have already been logged to avoid duplicate console messages
 const loggedRows = new Set();
+
+// Track which rows have already beeped to avoid duplicate beeps
+const beepedRows = new Set();
 
 // Function to highlight Chinese stock info boxes
 function highlightChineseStockInfo() {
@@ -146,19 +182,36 @@ function highlightRows() {
       return; // Skip further processing for Chinese stocks
     }
 
-    // Check if all conditions are met:
+    // Check if STRICT criteria are met:
     // Price between $2 and $20
     // Volume > 100K (100,000)
     // Float < 20M (20,000,000)
     // Relative Volume Daily > 5
     // Relative Volume 5 min > 5
 
-    if (price >= 2 && price <= 20 &&
+    const meetsStrictCriteria = price >= 2 && price <= 20 &&
         volume > 100000 &&
         floatValue < 20000000 &&
         relVolDaily > 5 &&
-        relVol5min > 5) {
+        relVol5min > 5;
 
+    // Check if LAX criteria are met:
+    // Price between $1.01 and $20
+    // Volume > 50K (50,000)
+    // Float < 40M (40,000,000)
+    // Relative Volume Daily > 5
+    // Relative Volume 5 min > 5
+
+    const meetsLaxCriteria = price >= 1.01 && price <= 20 &&
+        volume > 50000 &&
+        floatValue < 40000000 &&
+        relVolDaily > 5 &&
+        relVol5min > 5;
+
+    // Create a unique key for this row
+    const rowKey = `${ticker}-${timeText}`;
+
+    if (meetsStrictCriteria) {
       // Highlight the first column (Time column) with soft red background
       const firstCell = cells[0];
       if (firstCell) {
@@ -166,13 +219,30 @@ function highlightRows() {
         firstCell.style.setProperty('color', 'white', 'important'); // Make text white for better contrast
       }
 
-      // Create a unique key for this row to avoid duplicate logs
-      const rowKey = `${ticker}-${timeText}`;
+      // Log to console if we haven't logged this row before
+      if (!loggedRows.has(rowKey)) {
+        console.log(`✓ STRICT CRITERIA: ${ticker} at ${timeText} | Price: $${price.toFixed(2)} | Vol: ${volumeText} | Float: ${floatText}`);
+        loggedRows.add(rowKey);
+      }
+
+      // Play high pitch beep if we haven't beeped for this row before
+      if (!beepedRows.has(rowKey)) {
+        playHighPitchBeep();
+        beepedRows.add(rowKey);
+      }
+    } else if (meetsLaxCriteria) {
+      // Lax criteria met but not strict - only play low pitch beep, no visual highlight
 
       // Log to console if we haven't logged this row before
       if (!loggedRows.has(rowKey)) {
-        console.log(`✓ HIGHLIGHTED: ${ticker} at ${timeText}`);
+        console.log(`⚬ LAX CRITERIA: ${ticker} at ${timeText} | Price: $${price.toFixed(2)} | Vol: ${volumeText} | Float: ${floatText}`);
         loggedRows.add(rowKey);
+      }
+
+      // Play low pitch beep if we haven't beeped for this row before
+      if (!beepedRows.has(rowKey)) {
+        playLowPitchBeep();
+        beepedRows.add(rowKey);
       }
     }
   });
