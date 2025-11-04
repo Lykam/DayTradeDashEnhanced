@@ -36,6 +36,30 @@ function parseNumber(text) {
 // Track which rows have already been logged to avoid duplicate console messages
 const loggedRows = new Set();
 
+// Function to highlight Chinese stock info boxes
+function highlightChineseStockInfo() {
+  // Find all HeadBottom-symbolInfo elements
+  const infoElements = document.querySelectorAll('.HeadBottom-symbolInfo');
+
+  infoElements.forEach(element => {
+    const text = element.textContent || '';
+
+    // Check if this is a Chinese stock (CN or HK between first and second pipe)
+    if (text.includes('| CN |') || text.includes('| HK |')) {
+      element.style.setProperty('background-color', '#FF6B6B', 'important');
+      element.style.setProperty('color', 'white', 'important');
+      element.style.setProperty('padding', '4px 8px', 'important');
+      element.style.setProperty('border-radius', '4px', 'important');
+    } else {
+      // Remove highlighting if it's not a Chinese stock
+      element.style.removeProperty('background-color');
+      element.style.removeProperty('color');
+      element.style.removeProperty('padding');
+      element.style.removeProperty('border-radius');
+    }
+  });
+}
+
 // Function to check and highlight rows based on criteria
 function highlightRows() {
   // Find ALL tr elements
@@ -97,6 +121,31 @@ function highlightRows() {
     const relVolDaily = parseNumber(relVolDailyText);
     const relVol5min = parseNumber(relVol5minText);
 
+    // Get full row text to check for Chinese stock indicators
+    const rowText = row.textContent || '';
+
+    // Check if this is a Chinese stock (CN or HK between first and second pipe)
+    const isChinese = rowText.includes('| CN |') || rowText.includes('| HK |');
+
+    // Highlight Chinese stocks in red
+    if (isChinese) {
+      const firstCell = cells[0];
+      if (firstCell) {
+        firstCell.style.setProperty('background-color', '#FF6B6B', 'important'); // Softer red
+        firstCell.style.setProperty('color', 'white', 'important'); // Make text white for better contrast
+      }
+
+      // Create a unique key for this row to avoid duplicate logs
+      const rowKey = `${ticker}-${timeText}`;
+
+      // Log to console if we haven't logged this row before
+      if (!loggedRows.has(rowKey)) {
+        console.log(`⚠ CHINESE STOCK: ${ticker} at ${timeText}`);
+        loggedRows.add(rowKey);
+      }
+      return; // Skip further processing for Chinese stocks
+    }
+
     // Check if all conditions are met:
     // Price between $2 and $20
     // Volume > 100K (100,000)
@@ -133,10 +182,12 @@ function highlightRows() {
 function setupHighlighting() {
   // Run highlighting immediately
   highlightRows();
+  highlightChineseStockInfo();
 
   // Set up a global observer that watches for ANY changes in the document
   const globalObserver = new MutationObserver(() => {
     highlightRows();
+    highlightChineseStockInfo();
   });
 
   // Watch the entire body for any changes
@@ -151,6 +202,7 @@ function setupHighlighting() {
   const intervalId = setInterval(() => {
     checkCount++;
     highlightRows();
+    highlightChineseStockInfo();
 
     if (checkCount >= 20) {
       clearInterval(intervalId);
