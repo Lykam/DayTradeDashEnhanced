@@ -72,6 +72,9 @@ const loggedRows = new Set();
 // Track which rows have already beeped to avoid duplicate beeps
 const beepedRows = new Set();
 
+// Track if we've completed the initial page load
+let initialLoadComplete = false;
+
 // Function to highlight Chinese stock info boxes
 function highlightChineseStockInfo() {
   // Find all HeadBottom-symbolInfo elements
@@ -227,11 +230,20 @@ function highlightRows() {
 
       // Play high pitch beep if we haven't beeped for this row before
       if (!beepedRows.has(rowKey)) {
-        playHighPitchBeep();
+        if (initialLoadComplete) {
+          playHighPitchBeep();
+        }
         beepedRows.add(rowKey);
       }
     } else if (meetsLaxCriteria) {
-      // Lax criteria met but not strict - only play low pitch beep, no visual highlight
+      // Lax criteria met but not strict - highlight with light orange and play low pitch beep
+
+      // Highlight the first column (Time column) with light orange background
+      const firstCell = cells[0];
+      if (firstCell) {
+        firstCell.style.setProperty('background-color', '#FFB366', 'important'); // Light orange
+        firstCell.style.setProperty('color', 'white', 'important'); // Make text white for better contrast
+      }
 
       // Log to console if we haven't logged this row before
       if (!loggedRows.has(rowKey)) {
@@ -241,7 +253,9 @@ function highlightRows() {
 
       // Play low pitch beep if we haven't beeped for this row before
       if (!beepedRows.has(rowKey)) {
-        playLowPitchBeep();
+        if (initialLoadComplete) {
+          playLowPitchBeep();
+        }
         beepedRows.add(rowKey);
       }
     }
@@ -278,6 +292,12 @@ function setupHighlighting() {
       clearInterval(intervalId);
     }
   }, 500); // Every 500ms
+
+  // After 30 seconds, mark initial load as complete and enable beeps for new rows
+  setTimeout(() => {
+    initialLoadComplete = true;
+    console.log('Initial load complete - beep alerts now enabled for new rows');
+  }, 30000);
 }
 
 // Try to run immediately
