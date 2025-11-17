@@ -186,10 +186,10 @@ function highlightRows() {
     }
 
     // Check if STRICT criteria are met:
-    // Price between $2 and $20
+    // Price between $2 and $10
     // Volume > 100K (100,000)
-    // Float < 20M (20,000,000)
-    // Relative Volume Daily > 5
+    // Float < 10M (10,000,000)
+    // Relative Volume Daily > 2
     // Relative Volume 5 min > 5
 
     const meetsStrictCriteria = price >= 2 && price <= 10 &&
@@ -201,8 +201,8 @@ function highlightRows() {
     // Check if LAX criteria are met:
     // Price between $1.01 and $20
     // Volume > 50K (50,000)
-    // Float < 40M (40,000,000)
-    // Relative Volume Daily > 5
+    // Float < 20M (20,000,000)
+    // Relative Volume Daily > 2
     // Relative Volume 5 min > 5
 
     const meetsLaxCriteria = price >= 1.01 && price <= 20 &&
