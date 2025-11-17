@@ -192,10 +192,10 @@ function highlightRows() {
     // Relative Volume Daily > 5
     // Relative Volume 5 min > 5
 
-    const meetsStrictCriteria = price >= 2 && price <= 20 &&
+    const meetsStrictCriteria = price >= 2 && price <= 10 &&
         volume > 100000 &&
-        floatValue < 20000000 &&
-        relVolDaily > 5 &&
+        floatValue < 10000000 &&
+        relVolDaily > 2 &&
         relVol5min > 5;
 
     // Check if LAX criteria are met:
@@ -207,8 +207,8 @@ function highlightRows() {
 
     const meetsLaxCriteria = price >= 1.01 && price <= 20 &&
         volume > 50000 &&
-        floatValue < 40000000 &&
-        relVolDaily > 5 &&
+        floatValue < 20000000 &&
+        relVolDaily > 2 &&
         relVol5min > 5;
 
     // Create a unique key for this row
