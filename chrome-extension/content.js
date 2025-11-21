@@ -83,8 +83,8 @@ function highlightChineseStockInfo() {
   infoElements.forEach(element => {
     const text = element.textContent || '';
 
-    // Check if this is a Chinese stock (CN or HK between first and second pipe)
-    if (text.includes('| CN |') || text.includes('| HK |')) {
+    // Check if this is a Chinese stock (CN, HK, SG between first and second pipe)
+    if (text.includes('| CN |') || text.includes('| HK |') || text.includes('| SG |')) {
       element.style.setProperty('background-color', '#FF6B6B', 'important');
       element.style.setProperty('color', 'white', 'important');
       element.style.setProperty('padding', '4px 8px', 'important');
@@ -163,8 +163,8 @@ function highlightRows() {
     // Get full row text to check for Chinese stock indicators
     const rowText = row.textContent || '';
 
-    // Check if this is a Chinese stock (CN or HK between first and second pipe)
-    const isChinese = rowText.includes('| CN |') || rowText.includes('| HK |');
+    // Check if this is a Chinese stock (CN, HK, SG between first and second pipe)
+    const isChinese = rowText.includes('| CN |') || rowText.includes('| HK |') || rowText.includes('| SG |');
 
     // Highlight Chinese stocks in red
     if (isChinese) {
