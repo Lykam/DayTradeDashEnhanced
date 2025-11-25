@@ -75,6 +75,9 @@ const beepedRows = new Set();
 // Track if we've completed the initial page load
 let initialLoadComplete = false;
 
+// Track if alerts are enabled (default: true)
+let alertsEnabled = true;
+
 // Function to highlight Chinese stock info boxes
 function highlightChineseStockInfo() {
   // Find all HeadBottom-symbolInfo elements
@@ -187,23 +190,23 @@ function highlightRows() {
 
     // Check if STRICT criteria are met:
     // Price between $2 and $10
-    // Volume > 100K (100,000)
+    // Volume > 50K (50,000)
     // Float < 10M (10,000,000)
     // Relative Volume 5 min > 5
 
     const meetsStrictCriteria = price >= 2 && price <= 10 &&
-        volume > 100000 &&
+        volume > 50000 &&
         floatValue < 10000000 &&
         relVol5min > 5;
 
     // Check if LAX criteria are met:
     // Price between $1.01 and $20
-    // Volume > 50K (50,000)
+    // Volume > 25K (25,000)
     // Float < 20M (20,000,000)
     // Relative Volume 5 min > 5
 
     const meetsLaxCriteria = price >= 1.01 && price <= 20 &&
-        volume > 50000 &&
+        volume > 25000 &&
         floatValue < 20000000 &&
         relVol5min > 5;
 
@@ -226,7 +229,7 @@ function highlightRows() {
 
       // Play high pitch beep if we haven't beeped for this row before
       if (!beepedRows.has(rowKey)) {
-        if (initialLoadComplete) {
+        if (initialLoadComplete && alertsEnabled) {
           playHighPitchBeep();
         }
         beepedRows.add(rowKey);
@@ -249,13 +252,119 @@ function highlightRows() {
 
       // Play low pitch beep if we haven't beeped for this row before
       if (!beepedRows.has(rowKey)) {
-        if (initialLoadComplete) {
+        if (initialLoadComplete && alertsEnabled) {
           playLowPitchBeep();
         }
         beepedRows.add(rowKey);
       }
     }
   });
+}
+
+// Function to create and inject the alerts toggle button
+function createAlertsToggle() {
+  // Find the sidebar container with the buttons
+  const sidebarContainer = document.querySelector('.css-k1xozo');
+
+  if (!sidebarContainer) {
+    // If sidebar not found, retry after a short delay
+    setTimeout(createAlertsToggle, 500);
+    return;
+  }
+
+  // Check if toggle already exists
+  if (document.getElementById('alerts-toggle-btn')) {
+    return;
+  }
+
+  // Create toggle button container to match sidebar button style
+  const toggleButton = document.createElement('button');
+  toggleButton.id = 'alerts-toggle-btn';
+  toggleButton.className = 'MuiButtonBase-root MuiButton-root MuiButton-text MuiButton-textPrimary MuiButton-sizeMedium MuiButton-textSizeMedium css-19jvqnw';
+  toggleButton.setAttribute('tabindex', '0');
+  toggleButton.setAttribute('type', 'button');
+
+  // Create the inner structure
+  const span = document.createElement('span');
+  const iconDiv = document.createElement('div');
+  iconDiv.className = 'css-e6dtyq';
+  iconDiv.setAttribute('aria-label', '');
+  iconDiv.style.marginTop = '0.25rem';
+
+  // Create SVG speaker icon
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('class', 'icon AresIcon-svg');
+  svg.setAttribute('width', '1.25rem');
+  svg.setAttribute('height', '1.25rem');
+  svg.style.cssText = 'width: 1.25rem; height: 1.25rem; fill: var(--menu-button-enable);';
+
+  // Speaker icon path (unmuted state)
+  const speakerPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  speakerPath.setAttribute('d', 'M11 5L6 9H2v6h4l5 4V5z');
+
+  // Sound wave 1
+  const wave1 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  wave1.setAttribute('d', 'M15.54 8.46a5 5 0 010 7.07');
+  wave1.setAttribute('stroke', 'currentColor');
+  wave1.setAttribute('stroke-width', '2');
+  wave1.setAttribute('fill', 'none');
+  wave1.setAttribute('stroke-linecap', 'round');
+
+  // Sound wave 2
+  const wave2 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  wave2.setAttribute('d', 'M19 6a9 9 0 010 12');
+  wave2.setAttribute('stroke', 'currentColor');
+  wave2.setAttribute('stroke-width', '2');
+  wave2.setAttribute('fill', 'none');
+  wave2.setAttribute('stroke-linecap', 'round');
+
+  // Mute line (hidden by default)
+  const muteLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+  muteLine.setAttribute('x1', '1');
+  muteLine.setAttribute('y1', '1');
+  muteLine.setAttribute('x2', '23');
+  muteLine.setAttribute('y2', '23');
+  muteLine.setAttribute('stroke', '#f44336');
+  muteLine.setAttribute('stroke-width', '2');
+  muteLine.setAttribute('stroke-linecap', 'round');
+  muteLine.style.display = 'none';
+
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.appendChild(speakerPath);
+  svg.appendChild(wave1);
+  svg.appendChild(wave2);
+  svg.appendChild(muteLine);
+
+  iconDiv.appendChild(svg);
+  span.appendChild(iconDiv);
+  toggleButton.appendChild(span);
+
+  // Add ripple effect span (to match MUI buttons)
+  const ripple = document.createElement('span');
+  ripple.className = 'MuiTouchRipple-root css-w0pj6f';
+  toggleButton.appendChild(ripple);
+
+  // Toggle functionality
+  toggleButton.addEventListener('click', () => {
+    alertsEnabled = !alertsEnabled;
+
+    if (alertsEnabled) {
+      wave1.style.display = '';
+      wave2.style.display = '';
+      muteLine.style.display = 'none';
+      svg.style.fill = 'var(--menu-button-enable)';
+      console.log('✓ Alerts enabled');
+    } else {
+      wave1.style.display = 'none';
+      wave2.style.display = 'none';
+      muteLine.style.display = '';
+      svg.style.fill = '#f44336';
+      console.log('✗ Alerts disabled');
+    }
+  });
+
+  // Insert the button after the settings button (last button in the container)
+  sidebarContainer.appendChild(toggleButton);
 }
 
 // Setup function to initialize highlighting and observer
@@ -298,3 +407,6 @@ function setupHighlighting() {
 
 // Try to run immediately
 setupHighlighting();
+
+// Create the alerts toggle button
+createAlertsToggle();
