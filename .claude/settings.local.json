@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cat:*)",
+      "Bash(git -C \"C:\\Users\\PC\\GitProjects\\DayTradeDashEnhanced\" log --oneline --all)",
+      "Bash(git -C \"C:\\Users\\PC\\GitProjects\\DayTradeDashEnhanced\" log --format=\"%h %s\" --all)",
+      "Bash(git -C \"C:\\Users\\PC\\GitProjects\\DayTradeDashEnhanced\" diff 7e5dd70 HEAD -- content.js)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
