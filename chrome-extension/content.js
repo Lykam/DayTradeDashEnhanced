@@ -49,13 +49,16 @@ function injectMuteOptionIntoMenu() {
   // Use the most recently created menu (last one)
   const menu = menus[menus.length - 1];
 
-  // Check if we already injected our option
-  if (menu.querySelector('#mute-ticker-option')) {
-    return;
-  }
-
+  // Capture the ticker at injection time to avoid closure issues
   const ticker = lastRightClickedTicker;
   const isMuted = mutedTickers.has(ticker);
+
+  // Check if we already injected our option
+  const existingOption = menu.querySelector('#mute-ticker-option');
+  if (existingOption) {
+    // Remove old option so we can recreate it with the correct ticker
+    existingOption.remove();
+  }
 
   // Create our menu item matching MUI style
   const muteOption = document.createElement('li');
@@ -323,12 +326,12 @@ function highlightRows() {
         relVol5min > 5;
 
     // Check if LAX criteria are met:
-    // Price between $1.01 and $20
+    // Price between $1.50 and $20
     // Volume > 25K (25,000)
     // Float < 20M (20,000,000)
     // Relative Volume 5 min > 5
 
-    const meetsLaxCriteria = price >= 1.01 && price <= 20 &&
+    const meetsLaxCriteria = price >= 1.50 && price <= 20 &&
         volume > 25000 &&
         floatValue < 20000000 &&
         relVol5min > 5;
