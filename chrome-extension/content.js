@@ -22,13 +22,34 @@ let lastRightClickedTicker = null;
 
 // Listen for right-clicks on ticker links to track which ticker was clicked
 document.addEventListener('contextmenu', function(event) {
-  const target = event.target;
+  let target = event.target;
+  let tickerLink = null;
 
+  // Check if the clicked element is the ticker link
   if (target.tagName === 'A' &&
       target.classList.contains('MuiLink-root') &&
       target.classList.contains('MuiLink-underlineAlways')) {
+    tickerLink = target;
+  } else {
+    // If not, search for the ticker link in the clicked element's children
+    tickerLink = target.querySelector('a.MuiLink-root.MuiLink-underlineAlways');
 
-    lastRightClickedTicker = target.textContent.trim();
+    // If still not found, search up the parent tree (in case they clicked on the td cell)
+    if (!tickerLink) {
+      let parent = target.parentElement;
+      let maxLevels = 5; // Limit how far up we search
+
+      while (parent && maxLevels > 0) {
+        tickerLink = parent.querySelector('a.MuiLink-root.MuiLink-underlineAlways');
+        if (tickerLink) break;
+        parent = parent.parentElement;
+        maxLevels--;
+      }
+    }
+  }
+
+  if (tickerLink) {
+    lastRightClickedTicker = tickerLink.textContent.trim();
 
     // Wait for the MUI menu to appear and inject our option
     setTimeout(() => {
@@ -316,12 +337,12 @@ function highlightRows() {
 
     // Check if STRICT criteria are met:
     // Price between $2 and $10
-    // Volume > 50K (50,000)
+    // Volume > 100K (100,000)
     // Float < 10M (10,000,000)
     // Relative Volume 5 min > 5
 
     const meetsStrictCriteria = price >= 2 && price <= 10 &&
-        volume > 50000 &&
+        volume > 100000 &&
         floatValue < 10000000 &&
         relVol5min > 5;
 
