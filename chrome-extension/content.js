@@ -106,8 +106,14 @@ function injectMuteOptionIntoMenu() {
     saveMutedTickers();
     updateMuteIndicator();
 
-    // Close the menu by clicking outside
-    document.body.click();
+    // Close the menu by clicking the MUI backdrop
+    const backdrop = document.querySelector('.MuiBackdrop-root, [role="presentation"]');
+    if (backdrop) {
+      backdrop.click();
+    } else {
+      // Fallback: press Escape key to close menu
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', keyCode: 27 }));
+    }
   });
 
   // Insert at the top of the menu
@@ -570,6 +576,61 @@ function createAlertsToggle() {
 
   // Insert after alerts toggle
   sidebarContainer.appendChild(mutedSettingsButton);
+
+  // Create chat scanner button
+  const chatScannerButton = document.createElement('button');
+  chatScannerButton.id = 'chat-scanner-btn';
+  chatScannerButton.className = 'MuiButtonBase-root MuiButton-root MuiButton-text MuiButton-textPrimary MuiButton-sizeMedium MuiButton-textSizeMedium css-19jvqnw';
+  chatScannerButton.setAttribute('tabindex', '0');
+  chatScannerButton.setAttribute('type', 'button');
+  chatScannerButton.setAttribute('title', 'Chat Scanner');
+
+  // Create the inner structure
+  const chatSpan = document.createElement('span');
+  const chatIconDiv = document.createElement('div');
+  chatIconDiv.className = 'css-e6dtyq';
+  chatIconDiv.setAttribute('aria-label', '');
+  chatIconDiv.style.marginTop = '0.25rem';
+
+  // Create SVG icon for chat scanner
+  const chatSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  chatSvg.setAttribute('class', 'icon AresIcon-svg');
+  chatSvg.setAttribute('width', '1.25rem');
+  chatSvg.setAttribute('height', '1.25rem');
+  chatSvg.setAttribute('viewBox', '0 0 24 24');
+  chatSvg.style.cssText = 'width: 1.25rem; height: 1.25rem; fill: var(--menu-button-enable);';
+
+  // Chat bubble icon
+  const chatPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  chatPath.setAttribute('d', 'M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z');
+  chatPath.setAttribute('fill', 'currentColor');
+
+  // Search/scan icon overlay
+  const scanCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+  scanCircle.setAttribute('cx', '12');
+  scanCircle.setAttribute('cy', '10');
+  scanCircle.setAttribute('r', '3');
+  scanCircle.setAttribute('fill', 'none');
+  scanCircle.setAttribute('stroke', 'white');
+  scanCircle.setAttribute('stroke-width', '1.5');
+
+  chatSvg.appendChild(chatPath);
+  chatSvg.appendChild(scanCircle);
+
+  chatIconDiv.appendChild(chatSvg);
+  chatSpan.appendChild(chatIconDiv);
+  chatScannerButton.appendChild(chatSpan);
+
+  // Add ripple effect span (to match MUI buttons)
+  const chatRipple = document.createElement('span');
+  chatRipple.className = 'MuiTouchRipple-root css-w0pj6f';
+  chatScannerButton.appendChild(chatRipple);
+
+  // Click handler to open modal
+  chatScannerButton.addEventListener('click', toggleChatScannerModal);
+
+  // Insert after muted settings button
+  sidebarContainer.appendChild(chatScannerButton);
 }
 
 // Function to update the mute indicator badge
@@ -709,6 +770,493 @@ function updateMutedTickersModalContent() {
         updateMutedTickersModalContent();
       }
     });
+  }
+}
+
+// Chat scanner state and settings
+let chatScannerSettings = {
+  username: '',
+  messageSelector: '.MessageContainer-messageRow', // Warrior Trading chat format
+  usernameSelector: '.MessageContainer-username',
+  timestampSelector: '.MessageContainer-timestamp',
+  contentSelector: '.message-text'
+};
+
+// Load chat scanner settings from localStorage
+function loadChatScannerSettings() {
+  try {
+    const stored = localStorage.getItem('chatScannerSettings');
+    if (stored) {
+      chatScannerSettings = { ...chatScannerSettings, ...JSON.parse(stored) };
+    }
+  } catch (error) {
+    console.error('Error loading chat scanner settings:', error);
+  }
+}
+
+// Save chat scanner settings to localStorage
+function saveChatScannerSettings() {
+  try {
+    localStorage.setItem('chatScannerSettings', JSON.stringify(chatScannerSettings));
+  } catch (error) {
+    console.error('Error saving chat scanner settings:', error);
+  }
+}
+
+// Load settings on initialization
+loadChatScannerSettings();
+
+// Function to parse timestamp from various formats
+function parseTimestamp(timestampText) {
+  if (!timestampText) return null;
+
+  const text = timestampText.trim();
+
+  // Try parsing ISO format (2025-12-16T10:30:00)
+  let date = new Date(text);
+  if (!isNaN(date.getTime())) return date;
+
+  // Try parsing time only formats (10:30 AM, 10:30:45, etc.)
+  const timeMatch = text.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?/i);
+  if (timeMatch) {
+    let hours = parseInt(timeMatch[1]);
+    const minutes = parseInt(timeMatch[2]);
+    const seconds = timeMatch[3] ? parseInt(timeMatch[3]) : 0;
+    const meridiem = timeMatch[4]?.toUpperCase();
+
+    if (meridiem === 'PM' && hours !== 12) hours += 12;
+    if (meridiem === 'AM' && hours === 12) hours = 0;
+
+    const now = new Date();
+    date = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes, seconds);
+    return date;
+  }
+
+  // Try parsing relative timestamps (5m ago, 2h ago)
+  const relativeMatch = text.match(/(\d+)\s*(m|min|minute|h|hour|s|sec|second)s?\s*ago/i);
+  if (relativeMatch) {
+    const value = parseInt(relativeMatch[1]);
+    const unit = relativeMatch[2].toLowerCase();
+    const now = new Date();
+
+    if (unit.startsWith('m')) {
+      return new Date(now.getTime() - value * 60 * 1000);
+    } else if (unit.startsWith('h')) {
+      return new Date(now.getTime() - value * 60 * 60 * 1000);
+    } else if (unit.startsWith('s')) {
+      return new Date(now.getTime() - value * 1000);
+    }
+  }
+
+  return null;
+}
+
+// Function to scan chat messages
+function scanChatMessages() {
+  const messages = [];
+  const messageElements = document.querySelectorAll(chatScannerSettings.messageSelector);
+
+  messageElements.forEach(elem => {
+    try {
+      let username = '';
+      let timestamp = null;
+      let content = '';
+
+      // Extract username
+      const usernameElem = elem.querySelector(chatScannerSettings.usernameSelector);
+      if (usernameElem) {
+        username = usernameElem.textContent.trim();
+      } else {
+        // Fallback: try to find username in the element text
+        username = elem.textContent.split(':')[0]?.trim() || '';
+      }
+
+      // Extract timestamp
+      const timestampElem = elem.querySelector(chatScannerSettings.timestampSelector);
+      if (timestampElem) {
+        timestamp = parseTimestamp(timestampElem.textContent);
+      } else {
+        // Fallback: use data-timestamp attribute or current time
+        const dataTimestamp = elem.getAttribute('data-timestamp');
+        if (dataTimestamp) {
+          timestamp = new Date(dataTimestamp);
+        }
+      }
+
+      // Extract content
+      const contentElem = elem.querySelector(chatScannerSettings.contentSelector);
+      if (contentElem) {
+        content = contentElem.textContent.trim();
+      } else {
+        // Fallback: use full element text
+        content = elem.textContent.trim();
+      }
+
+      // Only add messages with valid data
+      if (username && content) {
+        messages.push({
+          username,
+          timestamp: timestamp || new Date(),
+          content,
+          element: elem
+        });
+      }
+    } catch (error) {
+      console.error('Error parsing chat message:', error, elem);
+    }
+  });
+
+  return messages;
+}
+
+// Function to filter messages by username
+function filterMessagesByUser(messages, targetUsername) {
+  if (!targetUsername) return messages;
+
+  const normalizedTarget = targetUsername.toLowerCase().trim();
+  return messages.filter(msg =>
+    msg.username.toLowerCase().trim().includes(normalizedTarget)
+  );
+}
+
+// Function to group messages by 15-minute intervals
+function groupMessagesByTimeInterval(messages, intervalMinutes = 15) {
+  const groups = {};
+
+  messages.forEach(msg => {
+    const time = msg.timestamp;
+
+    // Round down to nearest interval
+    const roundedMinutes = Math.floor(time.getMinutes() / intervalMinutes) * intervalMinutes;
+    const intervalStart = new Date(time);
+    intervalStart.setMinutes(roundedMinutes, 0, 0);
+
+    const intervalEnd = new Date(intervalStart);
+    intervalEnd.setMinutes(intervalStart.getMinutes() + intervalMinutes);
+
+    const key = intervalStart.toISOString();
+
+    if (!groups[key]) {
+      groups[key] = {
+        start: intervalStart,
+        end: intervalEnd,
+        messages: []
+      };
+    }
+
+    groups[key].messages.push(msg);
+  });
+
+  // Sort groups by time
+  const sortedGroups = Object.entries(groups).sort((a, b) =>
+    a[1].start.getTime() - b[1].start.getTime()
+  );
+
+  return sortedGroups.map(([key, group]) => group);
+}
+
+// Function to format time for display
+function formatTime(date) {
+  const hours = date.getHours();
+  const minutes = date.getMinutes();
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  const displayHours = hours % 12 || 12;
+  const displayMinutes = minutes.toString().padStart(2, '0');
+  return `${displayHours}:${displayMinutes} ${ampm}`;
+}
+
+// Function to format grouped messages for copying
+function formatGroupForCopy(group) {
+  const startTime = formatTime(group.start);
+  const endTime = formatTime(group.end);
+
+  let text = `=== ${startTime} - ${endTime} ===\n\n`;
+
+  group.messages.forEach(msg => {
+    const msgTime = formatTime(msg.timestamp);
+    text += `[${msgTime}] ${msg.username}: ${msg.content}\n`;
+  });
+
+  return text;
+}
+
+// Function to toggle chat scanner modal
+function toggleChatScannerModal() {
+  let modal = document.getElementById('chat-scanner-modal');
+
+  if (modal) {
+    // Toggle visibility
+    if (modal.style.display === 'none') {
+      modal.style.display = 'flex';
+      refreshChatScan();
+    } else {
+      modal.style.display = 'none';
+    }
+    return;
+  }
+
+  // Create modal
+  modal = document.createElement('div');
+  modal.id = 'chat-scanner-modal';
+  modal.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10001;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  `;
+
+  const modalContent = document.createElement('div');
+  modalContent.style.cssText = `
+    background: white;
+    border-radius: 8px;
+    padding: 24px;
+    min-width: 700px;
+    max-width: 900px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  `;
+
+  modalContent.innerHTML = `
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+      <h2 style="margin: 0; font-size: 20px; color: #333;">💬 Chat Scanner</h2>
+      <button id="close-scanner-modal" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #666;">×</button>
+    </div>
+
+    <div style="margin-bottom: 20px; padding: 16px; background: #f5f5f5; border-radius: 6px;">
+      <div style="margin-bottom: 12px;">
+        <label style="display: block; font-size: 12px; font-weight: 500; color: #666; margin-bottom: 6px;">USERNAME TO FILTER</label>
+        <div style="display: flex; gap: 8px;">
+          <input type="text" id="username-input" placeholder="Enter username..."
+            value="${chatScannerSettings.username}"
+            style="flex: 1; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
+          <button id="scan-btn" style="padding: 8px 16px; background: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 500; font-size: 14px;">Scan</button>
+        </div>
+      </div>
+
+      <details style="margin-top: 12px;">
+        <summary style="cursor: pointer; font-size: 12px; font-weight: 500; color: #666; user-select: none;">⚙️ Advanced Settings (CSS Selectors)</summary>
+        <div style="margin-top: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+          <div>
+            <label style="display: block; font-size: 11px; color: #666; margin-bottom: 4px;">Message Container</label>
+            <input type="text" id="message-selector" value="${chatScannerSettings.messageSelector}"
+              style="width: 100%; padding: 6px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px; font-family: monospace;">
+          </div>
+          <div>
+            <label style="display: block; font-size: 11px; color: #666; margin-bottom: 4px;">Username Element</label>
+            <input type="text" id="username-selector" value="${chatScannerSettings.usernameSelector}"
+              style="width: 100%; padding: 6px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px; font-family: monospace;">
+          </div>
+          <div>
+            <label style="display: block; font-size: 11px; color: #666; margin-bottom: 4px;">Timestamp Element</label>
+            <input type="text" id="timestamp-selector" value="${chatScannerSettings.timestampSelector}"
+              style="width: 100%; padding: 6px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px; font-family: monospace;">
+          </div>
+          <div>
+            <label style="display: block; font-size: 11px; color: #666; margin-bottom: 4px;">Message Content</label>
+            <input type="text" id="content-selector" value="${chatScannerSettings.contentSelector}"
+              style="width: 100%; padding: 6px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px; font-family: monospace;">
+          </div>
+        </div>
+      </details>
+    </div>
+
+    <div id="scan-results"></div>
+  `;
+
+  modal.appendChild(modalContent);
+  document.body.appendChild(modal);
+
+  // Close handlers
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      modal.style.display = 'none';
+    }
+  });
+
+  modalContent.querySelector('#close-scanner-modal').addEventListener('click', () => {
+    modal.style.display = 'none';
+  });
+
+  // Scan button handler
+  modalContent.querySelector('#scan-btn').addEventListener('click', () => {
+    // Update settings
+    chatScannerSettings.username = modalContent.querySelector('#username-input').value;
+    chatScannerSettings.messageSelector = modalContent.querySelector('#message-selector').value;
+    chatScannerSettings.usernameSelector = modalContent.querySelector('#username-selector').value;
+    chatScannerSettings.timestampSelector = modalContent.querySelector('#timestamp-selector').value;
+    chatScannerSettings.contentSelector = modalContent.querySelector('#content-selector').value;
+
+    saveChatScannerSettings();
+    refreshChatScan();
+  });
+
+  // Allow Enter key to trigger scan
+  modalContent.querySelector('#username-input').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      modalContent.querySelector('#scan-btn').click();
+    }
+  });
+
+  // Initial scan
+  refreshChatScan();
+}
+
+// Function to refresh the chat scan results
+function refreshChatScan() {
+  const resultsDiv = document.getElementById('scan-results');
+  if (!resultsDiv) return;
+
+  try {
+    // Scan all messages
+    const allMessages = scanChatMessages();
+
+    if (allMessages.length === 0) {
+      resultsDiv.innerHTML = `
+        <div style="text-align: center; padding: 40px 20px; color: #999;">
+          <div style="font-size: 48px; margin-bottom: 16px;">🔍</div>
+          <div style="font-size: 14px;">No chat messages found</div>
+          <div style="font-size: 12px; margin-top: 8px;">Check your CSS selectors in Advanced Settings</div>
+        </div>
+      `;
+      return;
+    }
+
+    // Filter by username if specified
+    const filteredMessages = filterMessagesByUser(allMessages, chatScannerSettings.username);
+
+    if (filteredMessages.length === 0) {
+      resultsDiv.innerHTML = `
+        <div style="text-align: center; padding: 40px 20px; color: #999;">
+          <div style="font-size: 48px; margin-bottom: 16px;">👤</div>
+          <div style="font-size: 14px;">No messages found for "${chatScannerSettings.username}"</div>
+          <div style="font-size: 12px; margin-top: 8px; color: #666;">Found ${allMessages.length} total messages from other users</div>
+        </div>
+      `;
+      return;
+    }
+
+    // Group by 15-minute intervals
+    const groups = groupMessagesByTimeInterval(filteredMessages, 15);
+
+    // Render results
+    let html = `
+      <div style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
+        <div style="color: #666; font-size: 14px;">
+          Found <strong>${filteredMessages.length}</strong> messages from <strong>${chatScannerSettings.username || 'all users'}</strong>
+          in <strong>${groups.length}</strong> time intervals
+        </div>
+        <button id="copy-all-btn" style="padding: 6px 12px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 500;">
+          Copy All
+        </button>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+    `;
+
+    groups.forEach((group, index) => {
+      const startTime = formatTime(group.start);
+      const endTime = formatTime(group.end);
+      const groupText = formatGroupForCopy(group);
+
+      html += `
+        <div style="border: 1px solid #ddd; border-radius: 6px; overflow: hidden;">
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #f8f9fa;">
+            <div style="font-weight: 600; color: #333;">
+              ${startTime} - ${endTime}
+              <span style="margin-left: 8px; font-size: 12px; color: #666; font-weight: 400;">(${group.messages.length} messages)</span>
+            </div>
+            <button class="copy-group-btn" data-group-index="${index}" style="padding: 4px 12px; background: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 500;">
+              Copy
+            </button>
+          </div>
+          <div style="padding: 12px; max-height: 200px; overflow-y: auto; background: white;">
+      `;
+
+      group.messages.forEach(msg => {
+        const msgTime = formatTime(msg.timestamp);
+        html += `
+          <div style="margin-bottom: 8px; font-size: 13px; line-height: 1.5;">
+            <span style="color: #999; font-size: 11px;">[${msgTime}]</span>
+            <span style="color: #2196F3; font-weight: 500;">${msg.username}:</span>
+            <span style="color: #333;">${msg.content}</span>
+          </div>
+        `;
+      });
+
+      html += `
+          </div>
+        </div>
+      `;
+    });
+
+    html += '</div>';
+    resultsDiv.innerHTML = html;
+
+    // Add copy handlers
+    resultsDiv.querySelectorAll('.copy-group-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const index = parseInt(btn.getAttribute('data-group-index'));
+        const group = groups[index];
+        const text = formatGroupForCopy(group);
+
+        navigator.clipboard.writeText(text).then(() => {
+          const originalText = btn.textContent;
+          btn.textContent = '✓ Copied!';
+          btn.style.background = '#4CAF50';
+          setTimeout(() => {
+            btn.textContent = originalText;
+            btn.style.background = '#2196F3';
+          }, 2000);
+        }).catch(err => {
+          console.error('Failed to copy:', err);
+          alert('Failed to copy to clipboard');
+        });
+      });
+    });
+
+    // Add copy all handler
+    const copyAllBtn = resultsDiv.querySelector('#copy-all-btn');
+    if (copyAllBtn) {
+      copyAllBtn.addEventListener('click', () => {
+        let allText = `Chat Messages from ${chatScannerSettings.username || 'All Users'}\n`;
+        allText += `Total: ${filteredMessages.length} messages\n`;
+        allText += `Date: ${new Date().toLocaleDateString()}\n\n`;
+
+        groups.forEach(group => {
+          allText += formatGroupForCopy(group) + '\n';
+        });
+
+        navigator.clipboard.writeText(allText).then(() => {
+          const originalText = copyAllBtn.textContent;
+          copyAllBtn.textContent = '✓ All Copied!';
+          copyAllBtn.style.background = '#4CAF50';
+          setTimeout(() => {
+            copyAllBtn.textContent = originalText;
+            copyAllBtn.style.background = '#4CAF50';
+          }, 2000);
+        }).catch(err => {
+          console.error('Failed to copy:', err);
+          alert('Failed to copy to clipboard');
+        });
+      });
+    }
+
+  } catch (error) {
+    console.error('Error scanning chat:', error);
+    resultsDiv.innerHTML = `
+      <div style="text-align: center; padding: 40px 20px; color: #f44336;">
+        <div style="font-size: 48px; margin-bottom: 16px;">⚠️</div>
+        <div style="font-size: 14px;">Error scanning chat</div>
+        <div style="font-size: 12px; margin-top: 8px; font-family: monospace;">${error.message}</div>
+      </div>
+    `;
   }
 }
 
