@@ -1260,6 +1260,31 @@ function refreshChatScan() {
   }
 }
 
+// Function to inject custom chat font size
+function injectChatFontSize(fontSize = '16px') {
+  // Check if style already exists
+  let styleElement = document.getElementById('custom-chat-font-style');
+  
+  if (!styleElement) {
+    styleElement = document.createElement('style');
+    styleElement.id = 'custom-chat-font-style';
+    document.head.appendChild(styleElement);
+  }
+  
+  // Update the style
+  styleElement.textContent = `
+    .message-text.chat-text {
+      font-size: ${fontSize} !important;
+    }
+    .message-text.chat-text span {
+      font-size: ${fontSize} !important;
+    }
+    .MessageContainer-username {
+      font-size: ${fontSize} !important;
+    }
+  `;
+}
+
 // Setup function to initialize highlighting and observer
 function setupHighlighting() {
   // Run highlighting immediately
@@ -1300,6 +1325,9 @@ function setupHighlighting() {
 
 // Try to run immediately
 setupHighlighting();
+
+// Inject custom chat font size (adjust the size as needed)
+injectChatFontSize('16px'); // Change this value to adjust font size
 
 // Create the alerts toggle button
 createAlertsToggle();
