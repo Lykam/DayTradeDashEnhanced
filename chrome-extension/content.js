@@ -779,7 +779,8 @@ let chatScannerSettings = {
   messageSelector: '.MessageContainer-messageRow', // Warrior Trading chat format
   usernameSelector: '.MessageContainer-username',
   timestampSelector: '.MessageContainer-timestamp',
-  contentSelector: '.message-text'
+  contentSelector: '.message-text',
+  chatFontSize: '14px' // Default chat font size
 };
 
 // Load chat scanner settings from localStorage
@@ -1041,6 +1042,18 @@ function toggleChatScannerModal() {
         </div>
       </div>
 
+      <div style="margin-bottom: 12px;">
+        <label style="display: block; font-size: 12px; font-weight: 500; color: #666; margin-bottom: 6px;">CHAT FONT SIZE</label>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <input type="range" id="font-size-slider" min="10" max="24" step="1" value="${parseInt(chatScannerSettings.chatFontSize)}"
+            style="flex: 1;">
+          <input type="number" id="font-size-input" min="10" max="24" value="${parseInt(chatScannerSettings.chatFontSize)}"
+            style="width: 60px; padding: 6px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; text-align: center;">
+          <span style="font-size: 12px; color: #666; width: 20px;">px</span>
+          <button id="apply-font-btn" style="padding: 6px 12px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 500; font-size: 12px;">Apply</button>
+        </div>
+      </div>
+
       <details style="margin-top: 12px;">
         <summary style="cursor: pointer; font-size: 12px; font-weight: 500; color: #666; user-select: none;">⚙️ Advanced Settings (CSS Selectors)</summary>
         <div style="margin-top: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
@@ -1083,6 +1096,36 @@ function toggleChatScannerModal() {
 
   modalContent.querySelector('#close-scanner-modal').addEventListener('click', () => {
     modal.style.display = 'none';
+  });
+
+  // Font size slider/input sync
+  const fontSizeSlider = modalContent.querySelector('#font-size-slider');
+  const fontSizeInput = modalContent.querySelector('#font-size-input');
+  
+  fontSizeSlider.addEventListener('input', () => {
+    fontSizeInput.value = fontSizeSlider.value;
+  });
+  
+  fontSizeInput.addEventListener('input', () => {
+    fontSizeSlider.value = fontSizeInput.value;
+  });
+
+  // Apply font size button handler
+  modalContent.querySelector('#apply-font-btn').addEventListener('click', () => {
+    const newSize = fontSizeInput.value + 'px';
+    chatScannerSettings.chatFontSize = newSize;
+    saveChatScannerSettings();
+    injectChatFontSize(newSize);
+    
+    // Visual feedback
+    const btn = modalContent.querySelector('#apply-font-btn');
+    const originalText = btn.textContent;
+    btn.textContent = '✓ Applied!';
+    btn.style.background = '#66BB6A';
+    setTimeout(() => {
+      btn.textContent = originalText;
+      btn.style.background = '#4CAF50';
+    }, 1500);
   });
 
   // Scan button handler
@@ -1326,8 +1369,8 @@ function setupHighlighting() {
 // Try to run immediately
 setupHighlighting();
 
-// Inject custom chat font size (adjust the size as needed)
-injectChatFontSize('16px'); // Change this value to adjust font size
+// Inject custom chat font size from settings
+injectChatFontSize(chatScannerSettings.chatFontSize);
 
 // Create the alerts toggle button
 createAlertsToggle();
