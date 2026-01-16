@@ -7,8 +7,8 @@ document.addEventListener('click', function(event) {
       target.classList.contains('MuiLink-root') &&
       target.classList.contains('MuiLink-underlineAlways')) {
 
-    // Get the ticker text
-    const tickerText = target.textContent.trim();
+    // Get the ticker text and remove $ if present
+    const tickerText = target.textContent.trim().replace(/^\$/, '');
 
     // Copy to clipboard
     navigator.clipboard.writeText(tickerText);
@@ -49,7 +49,7 @@ document.addEventListener('contextmenu', function(event) {
   }
 
   if (tickerLink) {
-    lastRightClickedTicker = tickerLink.textContent.trim();
+    lastRightClickedTicker = tickerLink.textContent.trim().replace(/^\$/, '');
 
     // Wait for the MUI menu to appear and inject our option
     setTimeout(() => {
