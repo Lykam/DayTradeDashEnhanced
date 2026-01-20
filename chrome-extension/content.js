@@ -10,10 +10,38 @@ document.addEventListener('click', function(event) {
     // Get the ticker text and remove $ if present
     const tickerText = target.textContent.trim().replace(/^\$/, '');
 
-    // Copy to clipboard
-    navigator.clipboard.writeText(tickerText);
+    if (tradingViewTabEnabled) {
+      // Open TradingView chart in a background tab via the extension background script
+      const tradingViewUrl = `https://www.tradingview.com/chart/X9RKeGml/?symbol=${tickerText}`;
+      try {
+        if (chrome && chrome.runtime && chrome.runtime.sendMessage) {
+          // Request background to open the tab inactive (active: false)
+          chrome.runtime.sendMessage({ action: 'openTab', url: tradingViewUrl, active: false }, (response) => {
+            // If background failed, fallback to window.open (will focus)
+            if (!response || response.success === false) {
+              try { window.open(tradingViewUrl, '_blank'); } catch (e) { /* ignore */ }
+            }
+          });
+        } else {
+          // Fallback if chrome runtime not available
+          window.open(tradingViewUrl, '_blank');
+        }
 
-    // Allow the default link behavior to proceed
+        // Also copy the ticker to clipboard (preserve original extension behavior)
+        try {
+          navigator.clipboard.writeText(tickerText);
+        } catch (e) {
+          // Clipboard may be unavailable in some contexts; ignore silently
+        }
+      } catch (err) {
+        console.error('Failed to request background to open TradingView tab:', err);
+        try { window.open(tradingViewUrl, '_blank'); } catch (e) { /* ignore */ }
+      }
+      // Allow the original click to proceed so the page's own handler runs
+    } else {
+      // Copy to clipboard
+      navigator.clipboard.writeText(tickerText);
+    }
   }
 }, true); // Use capture phase to catch event before other handlers
 
@@ -180,6 +208,9 @@ let initialLoadComplete = false;
 
 // Track if alerts are enabled (default: true)
 let alertsEnabled = true;
+
+// Track if TradingView new tab is enabled (default: true)
+let tradingViewTabEnabled = true;
 
 // Track muted tickers with date stamps (Map: ticker -> dateString)
 const mutedTickers = new Map();
@@ -631,6 +662,91 @@ function createAlertsToggle() {
 
   // Insert after muted settings button
   sidebarContainer.appendChild(chatScannerButton);
+
+  // Create TradingView new tab toggle button
+  const tradingViewButton = document.createElement('button');
+  tradingViewButton.id = 'tradingview-toggle-btn';
+  tradingViewButton.className = 'MuiButtonBase-root MuiButton-root MuiButton-text MuiButton-textPrimary MuiButton-sizeMedium MuiButton-textSizeMedium css-19jvqnw';
+  tradingViewButton.setAttribute('tabindex', '0');
+  tradingViewButton.setAttribute('type', 'button');
+  tradingViewButton.setAttribute('title', 'Toggle TradingView: Open tickers in new tab vs Copy to clipboard');
+
+  // Create the inner structure
+  const tvSpan = document.createElement('span');
+  const tvIconDiv = document.createElement('div');
+  tvIconDiv.className = 'css-e6dtyq';
+  tvIconDiv.setAttribute('aria-label', '');
+  tvIconDiv.style.marginTop = '0.25rem';
+
+  // Create SVG icon for TradingView
+  const tvSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  tvSvg.setAttribute('class', 'icon AresIcon-svg');
+  tvSvg.setAttribute('width', '1.25rem');
+  tvSvg.setAttribute('height', '1.25rem');
+  tvSvg.setAttribute('viewBox', '0 0 24 24');
+  tvSvg.style.cssText = 'width: 1.25rem; height: 1.25rem; fill: var(--menu-button-enable);';
+
+  // Chart/window icon (represents opening in new tab)
+  const chartPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  chartPath.setAttribute('d', 'M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zm-5.04-6.71l-2.75 3.54-2.73-3.54-1.48 1.93L12 17l4.22-5.15-1.26-1.81z');
+  chartPath.setAttribute('fill', 'currentColor');
+
+  tvSvg.appendChild(chartPath);
+
+  // Red slash indicator (hidden when enabled, shown when disabled) — matches audio icon behavior
+  const tvSlash = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+  tvSlash.setAttribute('x1', '3');
+  tvSlash.setAttribute('y1', '21');
+  tvSlash.setAttribute('x2', '21');
+  tvSlash.setAttribute('y2', '3');
+  tvSlash.setAttribute('stroke', '#f44336');
+  tvSlash.setAttribute('stroke-width', '2');
+  tvSlash.setAttribute('stroke-linecap', 'round');
+  tvSlash.style.display = tradingViewTabEnabled ? 'none' : '';
+  tvSvg.appendChild(tvSlash);
+  tvIconDiv.appendChild(tvSvg);
+  tvSpan.appendChild(tvIconDiv);
+  tradingViewButton.appendChild(tvSpan);
+
+  // Set initial visual state for the toggle
+  if (tradingViewTabEnabled) {
+    tvSvg.style.fill = 'var(--menu-button-enable)';
+    tradingViewButton.setAttribute('aria-pressed', 'true');
+    tradingViewButton.classList.add('active');
+    tvSlash.style.display = 'none';
+  } else {
+    tvSvg.style.fill = '#FF9800';
+    tradingViewButton.setAttribute('aria-pressed', 'false');
+    tradingViewButton.classList.remove('active');
+    tvSlash.style.display = '';
+  }
+
+  // Add ripple effect span (to match MUI buttons)
+  const tvRipple = document.createElement('span');
+  tvRipple.className = 'MuiTouchRipple-root css-w0pj6f';
+  tradingViewButton.appendChild(tvRipple);
+
+  // Toggle functionality
+  tradingViewButton.addEventListener('click', () => {
+    tradingViewTabEnabled = !tradingViewTabEnabled;
+
+    if (tradingViewTabEnabled) {
+      tvSvg.style.fill = 'var(--menu-button-enable)';
+      tvSlash.style.display = 'none';
+      tradingViewButton.setAttribute('aria-pressed', 'true');
+      tradingViewButton.classList.add('active');
+      console.log('📈 TradingView new tab enabled - clicking tickers opens chart');
+    } else {
+      tvSvg.style.fill = '#FF9800';
+      tvSlash.style.display = '';
+      tradingViewButton.setAttribute('aria-pressed', 'false');
+      tradingViewButton.classList.remove('active');
+      console.log('📋 Copy to clipboard enabled - clicking tickers copies symbol');
+    }
+  });
+
+  // Insert after chat scanner button
+  sidebarContainer.appendChild(tradingViewButton);
 }
 
 // Function to update the mute indicator badge
