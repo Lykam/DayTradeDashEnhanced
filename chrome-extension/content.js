@@ -209,8 +209,8 @@ let initialLoadComplete = false;
 // Track if alerts are enabled (default: true)
 let alertsEnabled = true;
 
-// Track if TradingView new tab is enabled (default: true)
-let tradingViewTabEnabled = true;
+// Track if TradingView new tab is enabled (default: false)
+let tradingViewTabEnabled = false;
 
 // Track muted tickers with date stamps (Map: ticker -> dateString)
 const mutedTickers = new Map();
