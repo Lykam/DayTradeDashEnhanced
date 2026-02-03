@@ -197,6 +197,22 @@ function playLowPitchBeep() {
   playBeep(400, 200); // 400 Hz, 200ms duration
 }
 
+// Function to speak the ticker name letter by letter
+function speakTicker(ticker) {
+  try {
+    // Convert ticker to individual letters with spaces between them
+    const spelled = ticker.split('').join(' ');
+    const utterance = new SpeechSynthesisUtterance(spelled);
+    utterance.rate = 1.2; // Slightly faster for urgency
+    utterance.pitch = 1;
+    utterance.volume = .5;
+    window.speechSynthesis.cancel(); // Cancel any previous speech
+    window.speechSynthesis.speak(utterance);
+  } catch (error) {
+    console.error('Error speaking ticker:', error);
+  }
+}
+
 // Track which rows have already been logged to avoid duplicate console messages
 const loggedRows = new Set();
 
@@ -415,6 +431,7 @@ function highlightRows() {
       if (!beepedRows.has(rowKey)) {
         if (initialLoadComplete && alertsEnabled) {
           playHighPitchBeep();
+          speakTicker(ticker);
         }
         beepedRows.add(rowKey);
       }
@@ -438,6 +455,7 @@ function highlightRows() {
       if (!beepedRows.has(rowKey)) {
         if (initialLoadComplete && alertsEnabled) {
           playLowPitchBeep();
+          speakTicker(ticker);
         }
         beepedRows.add(rowKey);
       }
