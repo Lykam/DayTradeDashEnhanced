@@ -4,8 +4,15 @@
   "version": "1.0",
   "description": "Enhanced day trading tools: copy tickers and highlight promising stocks",
   "permissions": [
-    "clipboardWrite"
+    "clipboardWrite",
+    "tabs"
   ],
+  "host_permissions": [
+    "https://www.tradingview.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
   "content_scripts": [
     {
       "matches": ["https://chatroom.warriortrading.com/*"],
