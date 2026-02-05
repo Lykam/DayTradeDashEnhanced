@@ -200,12 +200,23 @@ function playLowPitchBeep() {
 // Function to speak the ticker name letter by letter
 function speakTicker(ticker) {
   try {
+    // Check if speech synthesis is available
+    if (!window.speechSynthesis) {
+      console.warn('Speech Synthesis API not available');
+      return;
+    }
+
     // Convert ticker to individual letters with spaces between them
     const spelled = ticker.split('').join(' ');
     const utterance = new SpeechSynthesisUtterance(spelled);
     utterance.rate = 1.2; // Slightly faster for urgency
     utterance.pitch = 1;
     utterance.volume = .5;
+    
+    utterance.onstart = () => console.log('Speech started for:', ticker);
+    utterance.onerror = (event) => console.error('Speech error:', event.error);
+    utterance.onend = () => console.log('Speech ended for:', ticker);
+    
     window.speechSynthesis.cancel(); // Cancel any previous speech
     window.speechSynthesis.speak(utterance);
   } catch (error) {
